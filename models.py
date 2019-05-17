@@ -1,44 +1,75 @@
 
 from keras.models import Sequential, Model
 from keras.layers import Input, Dense, BatchNormalization, Activation, Dropout
-from keras.utils import normalize
 
 import importlib
 from livelossplot.keras import PlotLossesCallback
 
-import load
+import data
 import utils
-importlib.reload(load)
+importlib.reload(data)
 importlib.reload(utils)
 
+def _load_data(country=False):
 
-def train_model(country=False):
+	ds = data.Dataset(country)
 
-	if country:
-		x_train, y_train = load.load_country(country)
-	else:
-		x_train, y_train = load.load_all()
+	return ds.x_train, ds.y_train
 
-	samples = y_train.shape[0]
+class LinearReg:
 
-	x_train = normalize(x_train, axis=1)
-	y_train = normalize(y_train, axis=0).reshape((samples,))
+	def __init__(self, x_train, y_train):
 
-	print("x_train", x_train.shape)
+		self.epochs = 200
 
-	model = Sequential()
-	model.add(Dense(10, input_dim=x_train.shape[1]))
-	model.add(BatchNormalization())
-	model.add(Activation('tanh'))
-	model.add(Dropout(0.5))
+		self.samples = y_train.shape[0]
 
-	model.add(Dense(1, activation='relu'))
+		self.x_train, self.x_norm = utils.normalize(x_train)
+		self.y_train, self.y_norm = utils.normalize(y_train)
 
-	model.compile(loss='mean_squared_error', optimizer='adam')
+		model = Sequential()
+		model.add(Dense(10, input_dim=x_train.shape[1]))
+		model.add(BatchNormalization())
+		model.add(Activation('tanh'))
+		model.add(Dropout(0.5))
 
-	history = model.fit(x_train, y_train, 
-		epochs=200,
-		validation_split=0.35,
-		verbose=0)
+		model.add(Dense(1, activation='relu'))
 
-	return model, history
+		model.compile(loss='mean_squared_error', optimizer='adam')
+
+		self.model = model
+
+	def set_epochs(self, epochs):
+		self.epochs = epochs
+
+	def train(self):
+
+		self.history = self.model.fit(
+			self.x_train, self.y_train, 
+			epochs=self.epochs,
+			validation_split=0.35,
+			verbose=0)
+
+		return self.history
+
+	def plot_history(self):
+		utils.plot_loss(self.history)
+	
+	def predict(self, x):
+		x = utils.norm_apply(x, self.x_norm)
+		y = self.model.predict(x)
+		return utils.denormalize(y, self.y_norm)[0][0]
+
+def load_model(country=False, epochs=200):
+
+	x_train, y_train = _load_data(country)
+
+	model = LinearReg(x_train, y_train)
+	model.set_epochs(epochs)
+	model.train()
+
+	return model
+
+if __name__ == "__main__":
+	x_train, y_train = _load_data(country="GR")
+	print(y_train)
