@@ -1,6 +1,7 @@
 
 from keras.models import Sequential, Model
 from keras.layers import Input, Dense, BatchNormalization, Activation, Dropout
+from keras.regularizers import l1, l2, l1_l2
 
 import importlib
 from livelossplot.keras import PlotLossesCallback
@@ -28,12 +29,12 @@ class LinearReg:
 		self.y_train, self.y_norm = utils.normalize(y_train)
 
 		model = Sequential()
-		model.add(Dense(10, input_dim=x_train.shape[1]))
+		model.add(Dense(8, input_dim=x_train.shape[1], kernel_regularizer=l2(0.01)))
 		model.add(BatchNormalization())
 		model.add(Activation('tanh'))
 		model.add(Dropout(0.5))
 
-		model.add(Dense(1, activation='relu'))
+		model.add(Dense(1, activation='tanh', kernel_regularizer=l2(0.01)))
 
 		model.compile(loss='mean_squared_error', optimizer='adam')
 
@@ -59,16 +60,6 @@ class LinearReg:
 		x = utils.norm_apply(x, self.x_norm)
 		y = self.model.predict(x)
 		return utils.denormalize(y, self.y_norm)[0][0]
-
-def load_model(country=False, epochs=200):
-
-	x_train, y_train = _load_data(country)
-
-	model = LinearReg(x_train, y_train)
-	model.set_epochs(epochs)
-	model.train()
-
-	return model
 
 if __name__ == "__main__":
 	x_train, y_train = _load_data(country="GR")

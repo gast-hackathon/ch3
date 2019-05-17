@@ -1,23 +1,41 @@
 
 #%% Import libs
-from keras.models import Sequential, Model
-from keras.layers import Input, Dense, BatchNormalization, Activation, Dropout
-from keras.utils import normalize
-
+import time
 import importlib
-from livelossplot.keras import PlotLossesCallback
+
 
 #%% Import locals
-import data
 import utils
-import models
-importlib.reload(data)
 importlib.reload(utils)
-importlib.reload(models)
 
+
+#%% Load dataset
+import data
+importlib.reload(data)
+
+start = time.time()
+
+all_countries_dataset = data.load_dataset()
+full_dataset = all_countries_dataset.get_full_dataset()
+
+print("preprocessing:", (time.time()-start), "sec")
 
 #%% Train
+import models
+importlib.reload(models)
 
-model = models.load_model(epochs=500)
+start = time.time()
+
+model = all_countries_dataset.to_model()
+model.set_epochs(300)
+model.train()
+
+print("training:", (time.time()-start), "sec")
 
 model.plot_history()
+
+#%% Exhaustive search
+import algo
+importlib.reload(algo)
+
+algo.exhaustive_search(model, full_dataset, "CZ")

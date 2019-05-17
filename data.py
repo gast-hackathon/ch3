@@ -1,4 +1,5 @@
 
+import time
 import sys
 import numpy as np
 import xlrd
@@ -8,6 +9,7 @@ import utils
 import models
 
 COLUMNS = 24
+FEATURES = 9
 ROWS = 10
 countries = [
 	'AT', 'CZ', 'DE', 'GR', 'HT', 'MT', 'NL', 'PL', 'SK'
@@ -48,10 +50,10 @@ def _load_dataset():
 
 		for col in range(sheet.ncols - 2):
 
-			col_vals = _col_x( sheet.col_values(col + 2)[1:] )
+			col_vals = _col_x( sheet.col_values(col + 2) )
 			col_vals = [x if x else 0 for x in col_vals]
 
-			dataset[:, col] = col_vals
+			dataset[:, col + COLUMNS*i] = col_vals
 	
 	train_models = {}
 
@@ -73,11 +75,9 @@ def _load_dataset():
 
 				dataset[row, col] = prediction
 
-	utils.assert_no_zeros(dataset)
-
 	return dataset
 
-def _load_country(country_code, country_index=-1):
+def _load_country(country_code, with_index=False):
 
 	ds = _load_dataset()
 	ci = countries.index(country_code)
@@ -88,12 +88,12 @@ def _load_country(country_code, country_index=-1):
 	for col in range(COLUMNS):
 
 		col_values = ds[:, col + COLUMNS*ci]
-		x = col_values[:-1].tolist()
-		y = col_values[9]
+		x = col_values[0:FEATURES].tolist()
+		y = col_values[FEATURES]
 
-		if country_index > -1:
+		if with_index:
 			for i in range(len(countries)):
-				if i==country_index:
+				if i==ci:
 					x.insert(0, 1)
 				else:
 					x.insert(0, 0)
@@ -101,7 +101,7 @@ def _load_country(country_code, country_index=-1):
 		x_train.append(x)
 		y_train.append(y)
 
-	return x_train, y_train
+	return np.array(x_train), np.array(y_train)
 
 def _load_all_countries():
 
@@ -110,7 +110,7 @@ def _load_all_countries():
 
 	for i in range(len(countries)):
 
-		x, y = _load_country(countries[i], country_index=i)
+		x, y = _load_country(countries[i], with_index=True)
 		
 		x_train.append(x)
 		y_train.append(y)
@@ -123,29 +123,46 @@ def _load_all_countries():
 
 	return x_train, y_train
 
+def set_full_dataset(full_dataset):
+	global dataset
+	dataset = full_dataset
+
 class Dataset:
 		
-	def __init__(self, country=False):
-		
+	def __init__(self, country=False, with_index=False):
+
 		if country:
-			self.x_train, self.y_train = _load_country(country)
+			self.x_train, self.y_train = _load_country(country, with_index)
 		else:
 			self.x_train, self.y_train = _load_all_countries()
 
 
 	def country_average(self):
 
-		avg = np.average(self.x_train, axis=0)
+		avg_x = np.average(self.x_train, axis=0)
+		avg_y = np.average(self.y_train)
 		
-		return avg
+		return avg_x.reshape((1, len(avg_x))), avg_y
 
 	def print_shapes(self):
 		print("x_train", self.x_train.shape)
 		print("y_train", self.y_train.shape)
 
+	def to_model(self):
+		return models.LinearReg(self.x_train, self.y_train)
+
+	def get_full_dataset(self):
+		global dataset
+		return dataset
+
+def load_dataset(country=False, with_index=False):
+
+	return Dataset(country, with_index)
+
 if __name__ == "__main__":
 	#ds = Dataset()
 	
-	_load_dataset()
-
+	x, y = _load_country("AT", True)
+	x = np.array(x)
+	print(x[:, 9])
 
