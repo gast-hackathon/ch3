@@ -9,13 +9,13 @@ import utils
 import models
 
 COLUMNS = 24
-FEATURES = 6
+FEATURES = 5
 countries = [
 	'AT', 'CZ', 'DE', 'GR', 'HT', 'MT', 'NL', 'PL', 'SK'
 ]
 
 
-ROWS = FEATURES+1
+ROWS = FEATURES+3
 JOINT_COLUMNS = COLUMNS * len(countries)
 
 dataset = np.zeros((1,))
@@ -40,8 +40,9 @@ def _col_x(col):
 		col[9],           # 2. Churn rate
 		col[10],          # 3. Forced disconnection
 		col[14],          # 4. Average amount per fraud case
-		col[26],          # 5. Payer per application
-		fraud_rate,       # 6. Fraud rate
+		fraud_rate,       # 5. Fraud rate
+		col[14],          # 6. Fraud revenue
+		col[7],           # 7. Never payer ratio
 	]
 
 def _load_dataset():
@@ -72,9 +73,6 @@ def _load_dataset():
 		
 		for col in range(JOINT_COLUMNS):
 
-			if dataset[row, col] < 0:
-				print(row, col, dataset[row, col])
-
 			if dataset[row, col] == 0:
 				x_train, y_train = utils.get_full_columns(dataset, col, row)
 				x_pred = utils.get_predict_column(dataset, col, row)
@@ -87,14 +85,6 @@ def _load_dataset():
 					train_models[row] = model
 
 				prediction = train_models[row].predict(x_pred)
-
-				if prediction < 0:
-					print(prediction)
-					print(train_models[row].plot_history())
-
-				if not np.isfinite(prediction):
-					print(prediction)
-					print(train_models[row].plot_history())
 
 				dataset[row, col] = prediction
 
@@ -154,9 +144,24 @@ def set_full_dataset(full_dataset):
 	global dataset
 	dataset = full_dataset
 
+def country_average_payer_revenue(country):
+	ds = _load_dataset()
+	ci = countries.index(country)
+	
+	vals = []	
+	
+	for col in range(COLUMNS):
+		col_values = ds[:, col + COLUMNS*ci]
+		avg_rev = col_values[FEATURES+1]
+		vals.append(avg_rev)
+
+	return np.average(vals)
+
 class Dataset:
 		
 	def __init__(self, country=False, with_index=False):
+
+		self.country = country
 
 		if country:
 			self.x_train, self.y_train = _load_country(country, with_index)
@@ -189,7 +194,13 @@ def load_dataset(country=False, with_index=False):
 if __name__ == "__main__":
 	#ds = Dataset()
 	
-	x, y = _load_country("AT", True)
-	x = np.array(x)
-	print(x[:, 9])
+	for country in countries:
+
+		ds = Dataset(country)
+
+		_, y = ds.country_average()
+		y = round(y*100, 2)
+
+		print(country, y)
+		print(ds.y_train)
 

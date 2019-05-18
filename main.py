@@ -34,6 +34,7 @@ start = time.time()
 model = dataset.to_model()
 model.set_epochs(300)
 model.set_pca(4)
+model.set_checkpoint("model.h5")
 model.train()
 
 print("training:", (time.time()-start), "sec")
@@ -44,7 +45,11 @@ print("training:", (time.time()-start), "sec")
 import algo
 importlib.reload(algo)
 
+start = time.time()
+
 for country in data.countries:
 	algo.exhaustive_search(model, full_dataset, country)
+
+print("results:", (time.time()-start), "sec")
 
 algo.plot()

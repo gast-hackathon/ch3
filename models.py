@@ -3,6 +3,7 @@ from keras.models import Sequential, Model
 from keras.layers import Input, Dense, BatchNormalization, Activation, Dropout, LeakyReLU
 from keras.regularizers import l1, l2, l1_l2
 from keras.constraints import NonNeg
+from keras.callbacks import ModelCheckpoint
 
 import importlib
 from livelossplot.keras import PlotLossesCallback
@@ -30,6 +31,7 @@ class LinearReg:
 		self.use_pca = False
 		self.x_train_pca = []
 		self.non_neg = False
+		self.checkpoint = ''
 
 		self.samples = y_train.shape[0]
 
@@ -46,6 +48,9 @@ class LinearReg:
 
 	def set_non_neg(self):
 		self.non_neg = True
+
+	def set_checkpoint(self, filepath):
+		self.checkpoint = filepath
 
 	def train(self):
 
@@ -68,7 +73,7 @@ class LinearReg:
 		# Hidden layer
 		model.add(hidden)
 		model.add(BatchNormalization())
-		model.add(LeakyReLU(alpha=0.1))
+		model.add(Activation('tanh'))
 		model.add(Dropout(0.4))
 
 		# Output layer
@@ -79,11 +84,17 @@ class LinearReg:
 
 		self.model = model
 
+		callbacks = []
+
+		if self.checkpoint:
+			callbacks.append(ModelCheckpoint(self.checkpoint, monitor='loss'))
+
 		self.history = self.model.fit(
 			x, self.y_train, 
 			epochs=self.epochs,
 			validation_split=0.15,
-			verbose=0)
+			verbose=0,
+			callbacks=callbacks)
 
 		return self.history
 

@@ -52,11 +52,11 @@ def normalize(x):
 	mx = np.max(x, axis=0)
 
 	if not np.all(mx != 0):
-		print(mx)
+		print("zeros", mx)
 	if not np.isfinite(mx).all():
-		print(mx)
+		print("infinite", mx)
 	if not np.isfinite(x).all():
-		print(x)
+		print("infinite x", x)
 
 	x = x / mx
 	return x, (mean, mx)
