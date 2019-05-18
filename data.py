@@ -9,28 +9,39 @@ import utils
 import models
 
 COLUMNS = 24
-FEATURES = 9
-ROWS = 10
+FEATURES = 6
 countries = [
 	'AT', 'CZ', 'DE', 'GR', 'HT', 'MT', 'NL', 'PL', 'SK'
 ]
+
+
+ROWS = FEATURES+1
 JOINT_COLUMNS = COLUMNS * len(countries)
 
 dataset = np.zeros((1,))
 
 def _col_x(col):
 
+	if (col[2] + col[4]) > 0:
+		rej_rate = ((col[1] * col[2]) + (col[3] * col[4])) / (col[2] + col[4])
+	else:
+		rej_rate = 0
+
+	accepted_applications = (col[2] + col[4]) * (1 - rej_rate)
+
+	if accepted_applications > 0:
+		fraud_rate = col[11] / accepted_applications
+	else:
+		fraud_rate = 0
+
 	return [
 		col[2] + col[4],  # 0. Applications
-		col[22],          # 1. Rejections
-		col[8],           # 2. Never payer
-		col[9],           # 3. Churn rate
-		col[10],          # 4. Forced disconnection
-		col[14],          # 5. Average amount per fraud case
-		col[15],          # 6. Subscribers blocked - fraud
-		col[16],          # 7. Subscribers blocked - all
-		col[17],          # 8. Balance blocked - credit monitoring
-		col[11],          # 9. Fraud count
+		rej_rate,         # 1. Rejection rate
+		col[9],           # 2. Churn rate
+		col[10],          # 3. Forced disconnection
+		col[14],          # 4. Average amount per fraud case
+		col[26],          # 5. Payer per application
+		fraud_rate,       # 6. Fraud rate
 	]
 
 def _load_dataset():
@@ -51,7 +62,7 @@ def _load_dataset():
 		for col in range(sheet.ncols - 2):
 
 			col_vals = _col_x( sheet.col_values(col + 2) )
-			col_vals = [x if x else 0 for x in col_vals]
+			col_vals = [x if x and x > 0 else 0 for x in col_vals]
 
 			dataset[:, col + COLUMNS*i] = col_vals
 	
@@ -61,6 +72,9 @@ def _load_dataset():
 		
 		for col in range(JOINT_COLUMNS):
 
+			if dataset[row, col] < 0:
+				print(row, col, dataset[row, col])
+
 			if dataset[row, col] == 0:
 				x_train, y_train = utils.get_full_columns(dataset, col, row)
 				x_pred = utils.get_predict_column(dataset, col, row)
@@ -68,12 +82,23 @@ def _load_dataset():
 				if row not in train_models:
 					model = models.LinearReg(x_train, y_train)
 					model.set_epochs(200)
+					model.set_non_neg()
 					model.train()
 					train_models[row] = model
 
 				prediction = train_models[row].predict(x_pred)
 
+				if prediction < 0:
+					print(prediction)
+					print(train_models[row].plot_history())
+
+				if not np.isfinite(prediction):
+					print(prediction)
+					print(train_models[row].plot_history())
+
 				dataset[row, col] = prediction
+
+	#utils.assert_positive(dataset)
 
 	return dataset
 
@@ -101,7 +126,9 @@ def _load_country(country_code, with_index=False):
 		x_train.append(x)
 		y_train.append(y)
 
-	return np.array(x_train), np.array(y_train)
+	x_train, y_train = np.array(x_train), np.array(y_train)
+
+	return x_train, y_train
 
 def _load_all_countries():
 

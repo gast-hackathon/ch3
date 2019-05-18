@@ -2,21 +2,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_loss(history):
-	plt.plot(history.history['loss'])
-	plt.plot(history.history['val_loss'])
-	plt.title('model loss')
-	plt.ylabel('loss')
-	plt.xlabel('epoch')
-	plt.legend(['train', 'test'], loc='upper left')
-	plt.show()
-
 def get_full_columns(dataset, except_column, output_index):
 
 	x_train = []
 	y_train = []
-
-	count = 0
 
 	for col in range(dataset.shape[1]):
 
@@ -61,6 +50,14 @@ def normalize(x):
 	mean = np.mean(x, axis=0)
 	x = x - mean
 	mx = np.max(x, axis=0)
+
+	if not np.all(mx != 0):
+		print(mx)
+	if not np.isfinite(mx).all():
+		print(mx)
+	if not np.isfinite(x).all():
+		print(x)
+
 	x = x / mx
 	return x, (mean, mx)
 
@@ -74,8 +71,8 @@ def denormalize(x, norm):
 	mx = norm[1]
 	return (x * mx) + mean
 
-def assert_no_zeros(dataset):
+def assert_positive(dataset):
 	for i in range(dataset.shape[0]):
 		for j in range(dataset.shape[1]):
-			assert dataset[i, j] != 0
+			assert dataset[i, j] > -0.001
 			

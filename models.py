@@ -1,10 +1,15 @@
 
 from keras.models import Sequential, Model
-from keras.layers import Input, Dense, BatchNormalization, Activation, Dropout
+from keras.layers import Input, Dense, BatchNormalization, Activation, Dropout, LeakyReLU
 from keras.regularizers import l1, l2, l1_l2
+from keras.constraints import NonNeg
 
 import importlib
 from livelossplot.keras import PlotLossesCallback
+
+import matplotlib.pyplot as plt
+
+from sklearn.decomposition import PCA
 
 import data
 import utils
@@ -22,42 +27,81 @@ class LinearReg:
 	def __init__(self, x_train, y_train):
 
 		self.epochs = 200
+		self.use_pca = False
+		self.x_train_pca = []
+		self.non_neg = False
 
 		self.samples = y_train.shape[0]
 
 		self.x_train, self.x_norm = utils.normalize(x_train)
 		self.y_train, self.y_norm = utils.normalize(y_train)
 
-		model = Sequential()
-		model.add(Dense(8, input_dim=x_train.shape[1], kernel_regularizer=l2(0.01)))
-		model.add(BatchNormalization())
-		model.add(Activation('tanh'))
-		model.add(Dropout(0.5))
+	def set_pca(self, n_features=6):
+		self.use_pca = True
+		self.pca = PCA(n_components=n_features)
+		self.x_train_pca = self.pca.fit_transform(self.x_train)
 
-		model.add(Dense(1, activation='tanh', kernel_regularizer=l2(0.01)))
+	def set_epochs(self, epochs):
+		self.epochs = epochs
+
+	def set_non_neg(self):
+		self.non_neg = True
+
+	def train(self):
+
+		if self.use_pca:
+			x = self.x_train_pca
+		else:
+			x = self.x_train
+
+		input_dim = x.shape[1]
+
+		hidden = Dense(6, input_dim=input_dim, kernel_regularizer=l1(0.01))
+
+		if self.non_neg:
+			output = Dense(1, input_dim=input_dim, kernel_regularizer=l1(0.01), kernel_constraint=NonNeg())
+		else:
+			output = Dense(1, input_dim=input_dim, kernel_regularizer=l1(0.01))
+
+		model = Sequential()
+
+		# Hidden layer
+		model.add(hidden)
+		model.add(BatchNormalization())
+		model.add(LeakyReLU(alpha=0.1))
+		model.add(Dropout(0.4))
+
+		# Output layer
+		model.add(output)
+		model.add(Activation('relu'))
 
 		model.compile(loss='mean_squared_error', optimizer='adam')
 
 		self.model = model
 
-	def set_epochs(self, epochs):
-		self.epochs = epochs
-
-	def train(self):
-
 		self.history = self.model.fit(
-			self.x_train, self.y_train, 
+			x, self.y_train, 
 			epochs=self.epochs,
-			validation_split=0.35,
+			validation_split=0.15,
 			verbose=0)
 
 		return self.history
 
-	def plot_history(self):
-		utils.plot_loss(self.history)
+	def plot_history(self, show=True):
+		plt.plot(self.history.history['loss'])
+		plt.plot(self.history.history['val_loss'])
+		plt.title('model loss')
+		plt.ylabel('loss')
+		plt.xlabel('epoch')
+		plt.legend(['train', 'test'], loc='upper left')
+
+		if show:
+			plt.show()
 	
 	def predict(self, x):
 		x = utils.norm_apply(x, self.x_norm)
+		if self.use_pca:
+			x = self.pca.transform(x)
 		y = self.model.predict(x)
 		return utils.denormalize(y, self.y_norm)[0][0]
 
