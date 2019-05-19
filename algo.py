@@ -39,6 +39,9 @@ def _search(model, country_code, plot_revenue=False, with_index=False):
 
 	rej_rate = 0
 
+	revenue_at_avg = 0
+	pred_fraud_at_avg = 0
+
 	while rej_rate < 0.4:
 
 		avg[0, base+1] = rej_rate
@@ -58,8 +61,15 @@ def _search(model, country_code, plot_revenue=False, with_index=False):
 		plt_x.append(rej_rate)
 		plt_avg_fraud.append(avg_fraud_revenue)
 		plt_avg_revenue.append(avg_revenue)
+
+		if rej_rate > avg_rejections and not pred_fraud_at_avg:
+			revenue_at_avg = total_revenue
+			pred_fraud_at_avg = fraud_rate_prediction * accepted_applications * avg_payer_revenue
+
 		rej_rate += 0.01
 	
+	worst_fraud = plt_fraud[0] * avg_payer_revenue
+
 	if plot_revenue:
 		plt.plot(plt_x, plt_revenue, 'g', label='Revenue')	
 		plt.plot(plt_x, plt_avg_revenue, label='Average revenue')
@@ -72,10 +82,15 @@ def _search(model, country_code, plot_revenue=False, with_index=False):
 	plt.legend() 
 	
 	if plot_revenue:
-		country_gain = np.max(np.array(plt_revenue) - np.array(plt_avg_revenue))
+		country_gain = np.max(np.array(plt_revenue)) - revenue_at_avg
 		country_gain_per_decrease = country_gain / (avg_rejections * 100)
 		perc_gain = round(100 * country_gain / avg_revenue, 2)
 		perc_gain_per_decrease = round(perc_gain / (avg_rejections * 100), 3)
+
+		fraud_increase = worst_fraud - pred_fraud_at_avg
+		fraud_increase_per_decrease = round(fraud_increase / (avg_rejections * 100), 3)
+		perc_fraud_increase = round(100 * fraud_increase / pred_fraud_at_avg, 2)
+		perc_fraud_increase_per_decrease = round(perc_fraud_increase / (avg_rejections * 100), 3)
 
 		print('country', country_code)
 		print('\trejection decrease', (avg_rejections * 100), '%')
@@ -83,6 +98,10 @@ def _search(model, country_code, plot_revenue=False, with_index=False):
 		print('\tgain per 1%', country_gain_per_decrease)
 		print('\tperc gain', perc_gain)
 		print('\tperc gain per 1%', perc_gain_per_decrease)
+		print('\tfraud increase', fraud_increase)
+		print('\tfraud inrease per 1%', fraud_increase_per_decrease)
+		print('\tperc fraud increase', perc_fraud_increase)
+		print('\tperc fraud inrease per 1%', perc_fraud_increase_per_decrease)
 
 def exhaustive_search(model, full_dataset, country_code):
 
